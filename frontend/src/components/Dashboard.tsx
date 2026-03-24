@@ -2,154 +2,186 @@ import React from 'react';
 
 interface DashboardProps {
   data: {
-    vision: any;
-    risk: any;
-    time: any;
+    vision: {
+      crack_detected: boolean;
+      crack_area_percent: number;
+      crack_count: number;
+      confidence: number;
+      predictions: any[];
+      risk_score: number;
+      risk_level: string;
+    };
+    time: {
+      remaining_life_years: number;
+      degradation_curve: number[];
+    };
+    internal: {
+      carbonation_risk: string;
+      vibration_risk: string;
+      internal_risk_level: string;
+    };
+    risk: {
+      risk_level: string;
+      risk_score: number;
+    };
     suggestions: string[];
   };
-  imagePreview: string | null;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ data, imagePreview }) => {
-  const { vision, risk, time, suggestions } = data;
+const Dashboard: React.FC<DashboardProps> = ({ data }) => {
+  const { vision, time, internal, risk, suggestions } = data;
 
-  // Render SVG Life Curve
-  const renderLifeCurve = () => {
-    if (!time.degradation_curve || time.degradation_curve.length === 0) return null;
+  const getStatusColor = (level: string) => {
+    switch (level.toUpperCase()) {
+      case 'CRITICAL': return 'var(--danger)';
+      case 'HIGH': return 'var(--primary)';
+      case 'MEDIUM': return 'var(--warning)';
+      default: return 'var(--success)';
+    }
+  };
+
+  const renderForecastChart = () => {
+    const curve = time.degradation_curve || [];
+    if (curve.length === 0) return null;
     
-    const maxYear = time.degradation_curve[time.degradation_curve.length - 1].year;
-    const minYear = time.degradation_curve[0].year;
-    const padding = 20;
-    const width = 300 - padding * 2;
-    const height = 150 - padding * 2;
-
-    const points = time.degradation_curve.map((point: any, index: number) => {
-      const x = padding + (index / (time.degradation_curve.length - 1)) * width;
-      const y = padding + height - (point.health_index / 100) * height;
+    const w = 400;
+    const h = 100;
+    const padding = 10;
+    
+    const points = curve.map((v, i) => {
+      const x = padding + (i / (curve.length - 1)) * (w - padding * 2);
+      const y = h - padding - (v / 100) * (h - padding * 2);
       return `${x},${y}`;
     }).join(' ');
 
     return (
-      <svg width="100%" height="150" viewBox="0 0 300 150">
-        <defs>
-          <linearGradient id="gradient" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor="var(--warning)" stopOpacity="0.5" />
-            <stop offset="100%" stopColor="var(--danger)" stopOpacity="0.1" />
-          </linearGradient>
-        </defs>
-        {/* Draw axes */}
-        <line x1={padding} y1={padding + height} x2={padding + width} y2={padding + height} stroke="var(--border-color)" strokeWidth="2" />
-        <line x1={padding} y1={padding} x2={padding} y2={padding + height} stroke="var(--border-color)" strokeWidth="2" />
-        
-        {/* Draw curve area */}
-        <polygon points={`${padding},${padding + height} ${points} ${padding + width},${padding + height}`} fill="url(#gradient)" />
-        
-        {/* Draw curve line */}
-        <polyline fill="none" stroke="var(--accent-time)" strokeWidth="3" points={points} />
-        
-        {/* Draw points */}
-        {time.degradation_curve.map((point: any, index: number) => {
-          const x = padding + (index / (time.degradation_curve.length - 1)) * width;
-          const y = padding + height - (point.health_index / 100) * height;
-          return <circle key={index} cx={x} cy={y} fill="#fff" r="3" />
+      <svg width="100%" height="80" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none">
+        <polyline fill="none" stroke="var(--primary)" strokeWidth="3" points={points} />
+        {curve.map((v, i) => {
+          const x = padding + (i / (curve.length - 1)) * (w - padding * 2);
+          const y = h - padding - (v / 100) * (h - padding * 2);
+          return <rect key={i} x={x-2} y={y-2} width="4" height="4" fill="var(--text-main)" />
         })}
-        <text x={padding} y={padding + height + 15} fill="var(--text-muted)" fontSize="10">{minYear}</text>
-        <text x={padding + width - 15} y={padding + height + 15} fill="var(--text-muted)" fontSize="10">{maxYear}</text>
       </svg>
     );
   };
 
   return (
     <div className="dashboard-grid">
-      {/* Risk AI Panel */}
-      <div className="glass-panel" style={{ gridColumn: '1 / -1', borderLeft: '4px solid var(--accent-risk)' }}>
-        <span className="badge risk">Model 2 — XGBoost (Risk AI)</span>
-        <h2 style={{ fontSize: '1.25rem', marginBottom: '0.5rem' }}>Structural Risk Assessment</h2>
-        
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
+      
+      {/* 0. CONTEXT HEADER / MASTER STATUS */}
+      <div className="glass-panel" style={{ gridColumn: '1 / -1', background: 'var(--surface-highest)', border: '2px solid var(--border-color)' }}>
+        <div className="status-strip" style={{ background: getStatusColor(risk.risk_level) }}></div>
+        <div style={{ paddingLeft: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <div className="stat-value">{risk.risk_score} / 100</div>
-            <div style={{ color: 'var(--text-muted)' }}>Calculated Risk Score</div>
+            <div className="badge">SYSTEM READY // STRUCTURAL DIAGNOSIS</div>
+            <h2 style={{ margin: 0, fontSize: '2.5rem', fontFamily: 'Space Grotesk' }}>{risk.risk_level}</h2>
+            <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 700, marginTop: '0.25rem' }}>AGGREGATE STRUCTURAL INTEGRITY INDEX</div>
           </div>
           <div style={{ textAlign: 'right' }}>
-            <div className="stat-value" style={{ fontSize: '1.5rem', color: `var(--${risk.risk_level.toLowerCase() === 'critical' ? 'danger' : risk.risk_level.toLowerCase() === 'high' ? 'danger' : 'warning'})` }}>
-              {risk.risk_level}
+            <div className="stat-value" style={{ color: getStatusColor(risk.risk_level), fontSize: '4.5rem' }}>{risk.risk_score}<span style={{ fontSize: '1.5rem' }}>%</span></div>
+          </div>
+        </div>
+      </div>
+
+      {/* 1. VISION ENGINE (SURFACE) */}
+      <div className="glass-panel">
+        <div className="status-strip" style={{ background: getStatusColor(vision.risk_level) }}></div>
+        <span className="badge vision">01 // SURFACE_VISION_SCAN</span>
+        
+        <div style={{ marginTop: '1.5rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1px', background: 'var(--border-color)', border: '1px solid var(--border-color)' }}>
+            <div style={{ background: 'white', padding: '1rem' }}>
+              <div className="stat-value" style={{ fontSize: '1.75rem' }}>{vision.crack_count}</div>
+              <div className="metric-unit">TOTAL_CRACKS</div>
             </div>
-            <div style={{ color: 'var(--text-muted)' }}>Risk Category</div>
+            <div style={{ background: 'white', padding: '1rem' }}>
+              <div className="stat-value" style={{ fontSize: '1.75rem' }}>{vision.crack_area_percent}%</div>
+              <div className="metric-unit">AREA_ESTIMATE</div>
+            </div>
           </div>
-        </div>
-
-        <div className="risk-meter">
-          <div className="risk-fill" data-level={risk.risk_level} style={{ width: `${risk.risk_score}%` }}></div>
+          
+          <div style={{ marginTop: '1rem', fontSize: '0.75rem', fontWeight: 700 }}>
+             <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--surface-highest)', padding: '0.5rem 0' }}>
+               <span>CONFIDENCE_SCORE</span>
+               <span style={{ color: 'var(--primary)' }}>{vision.confidence.toFixed(3)}</span>
+             </div>
+             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0' }}>
+               <span>LOCAL_CONDITION</span>
+               <span>{vision.risk_level}</span>
+             </div>
+          </div>
         </div>
       </div>
 
-      {/* Vision AI Panel */}
+      {/* 2. INTERNAL ENGINE (SUB-SURFACE) */}
       <div className="glass-panel">
-        <span className="badge vision">Model 1 — YOLOv8 (Vision AI)</span>
-        <h3 style={{ fontSize: '1.1rem', margin: '0.5rem 0' }}>Crack Detection</h3>
+        <div className="status-strip" style={{ background: getStatusColor(internal.internal_risk_level) }}></div>
+        <span className="badge">02 // SUB_SURFACE_HEALTH</span>
         
-        <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
-          <div style={{ flex: 1, background: 'rgba(0,0,0,0.2)', padding: '1rem', borderRadius: '8px' }}>
-            <div style={{ fontSize: '1.5rem', fontWeight: 600 }}>{vision.crack_area_percent}%</div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Total Crack Area</div>
+        <div style={{ marginTop: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          <div style={{ background: 'var(--surface-low)', padding: '1rem', border: '1px solid var(--border-color)' }}>
+             <div style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-muted)' }}>CARBONATION_PENETRATION</div>
+             <div style={{ fontSize: '1.25rem', fontWeight: 700, fontFamily: 'Space Grotesk', color: getStatusColor(internal.carbonation_risk) }}>{internal.carbonation_risk}</div>
           </div>
-          <div style={{ flex: 1, background: 'rgba(0,0,0,0.2)', padding: '1rem', borderRadius: '8px' }}>
-            <div style={{ fontSize: '1.5rem', fontWeight: 600 }}>{vision.crack_count}</div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Identified Cracks</div>
+          
+          <div style={{ background: 'var(--surface-low)', padding: '1rem', border: '1px solid var(--border-color)' }}>
+             <div style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-muted)' }}>DYNAMIC_VIBRATION_ANOMALY</div>
+             <div style={{ fontSize: '1.25rem', fontWeight: 700, fontFamily: 'Space Grotesk', color: getStatusColor(internal.vibration_risk) }}>{internal.vibration_risk}</div>
+          </div>
+
+          <div style={{ background: 'var(--text-main)', color: 'white', padding: '0.5rem', textAlign: 'center', fontSize: '0.7rem', fontWeight: 800 }}>
+             INTERNAL_RISK_RATING: {internal.internal_risk_level}
           </div>
         </div>
-
-        {vision && vision.image_with_bboxes ? (
-          <div style={{ position: 'relative', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-color)', height: '150px' }}>
-            <img src={vision.image_with_bboxes} alt="Analyzed" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-          </div>
-        ) : (
-          imagePreview && (
-          <div style={{ position: 'relative', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-color)', height: '150px' }}>
-            <img src={imagePreview} alt="Preview fallback" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'contrast(1.2)' }} />
-          </div>
-          )
-        )}
       </div>
 
-      {/* Time AI Panel */}
+      {/* 3. TIME ENGINE (FORECAST) */}
       <div className="glass-panel">
-        <span className="badge time">Model 3 — LSTM (Time AI)</span>
-        <h3 style={{ fontSize: '1.1rem', margin: '0.5rem 0' }}>Life Prediction Forecast</h3>
+        <div className="status-strip" style={{ background: 'var(--tertiary)' }}></div>
+        <span className="badge time">03 // PROBABI_LIFE_FORECAST</span>
         
-        <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
-          <div>
-            <div style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--accent-time)' }}>{time.remaining_life_years}</div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Years Remaining</div>
+        <div style={{ marginTop: '1rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '1rem' }}>
+             <div>
+               <div style={{ fontSize: '3rem', fontWeight: 700, fontFamily: 'Space Grotesk', color: 'var(--primary)' }}>{time.remaining_life_years}</div>
+               <div className="metric-unit">EST_LIFE_UNITS(Y)</div>
+             </div>
+             <div style={{ textAlign: 'right' }}>
+               <div style={{ fontSize: '1.25rem', fontWeight: 700, fontFamily: 'Space Grotesk' }}>{new Date().getFullYear() + time.remaining_life_years}</div>
+               <div className="metric-unit">LIMIT_THRESH_EXPECT</div>
+             </div>
           </div>
-          <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
-            <div style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--danger)' }}>{time.collapse_risk_year}</div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Est. Collapse Year</div>
-          </div>
-        </div>
 
-        <div style={{ marginTop: '1rem', background: 'rgba(0,0,0,0.2)', padding: '1rem', borderRadius: '8px' }}>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Degradation Curve</div>
-          {renderLifeCurve()}
+          <div style={{ background: 'var(--surface-highest)', padding: '0.5rem', border: '1px solid var(--border-color)' }}>
+             {renderForecastChart()}
+             <div style={{ fontSize: '0.6rem', textAlign: 'center', fontWeight: 700, color: 'var(--text-muted)', marginTop: '0.25rem' }}>LSTM_DEGRADATION_PROJECTION</div>
+          </div>
         </div>
       </div>
 
-      {/* Reinforcement Engine Panel */}
-      <div className="glass-panel" style={{ gridColumn: '1 / -1', background: 'rgba(0,0,0,0.4)', borderColor: 'rgba(255,255,255,0.05)' }}>
-        <h3 style={{ fontSize: '1.1rem', margin: '0 0 1rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--success)' }}>
-            <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
-          </svg>
-          Reinforcement Engine - Recommended Actions
-        </h3>
-        
-        <ul className="suggestion-list">
-          {suggestions.map((suggestion, idx) => (
-            <li key={idx}><strong>{suggestion}</strong></li>
+      {/* 4. REINFORCEMENT SUGGESTIONS */}
+      <div className="glass-panel" style={{ gridColumn: '1 / -1', border: '2px solid var(--primary)', background: 'var(--surface-highest)' }}>
+        <h3 style={{ fontSize: '0.875rem', color: 'var(--primary)', marginBottom: '1rem' }}>[ PROTOCOL_RECOMMENDATIONS ]</h3>
+        <div className="suggestion-box">
+          {suggestions.map((s, i) => (
+            <div key={i} style={{ 
+              background: 'white', 
+              padding: '1.5rem', 
+              border: '1px solid var(--primary)', 
+              fontWeight: 700,
+              fontSize: '1.25rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '1.5rem'
+            }}>
+              <div style={{ width: '40px', height: '40px', background: 'var(--primary)', flexShrink: 0 }}></div>
+              {s}
+            </div>
           ))}
-        </ul>
+        </div>
       </div>
+
     </div>
   );
 };

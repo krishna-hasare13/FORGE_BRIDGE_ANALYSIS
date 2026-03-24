@@ -1,12 +1,14 @@
-import { useState } from 'react';
-import './index.css';
+import React, { useState, useEffect } from 'react';
 import Dashboard from './components/Dashboard';
+import './index.css';
 
 function App() {
   const [image, setImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [age, setAge] = useState<number>(20);
   const [loadFactor, setLoadFactor] = useState<number>(1.2);
+  const [coverDepth, setCoverDepth] = useState<number>(40);
+  const [environment, setEnvironment] = useState<string>("urban");
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
@@ -34,6 +36,8 @@ function App() {
     formData.append('image', image);
     formData.append('age', age.toString());
     formData.append('load_factor', loadFactor.toString());
+    formData.append('cover_depth_mm', coverDepth.toString());
+    formData.append('environment', environment);
 
     try {
       const response = await fetch('http://localhost:8000/api/analyze', {
@@ -41,14 +45,12 @@ function App() {
         body: formData,
       });
 
-      if (!response.ok) {
-        throw new Error('Analysis failed. Make sure the backend is running and APIs are configured.');
-      }
+      if (!response.ok) throw new Error('Analysis failed');
 
       const data = await response.json();
       setResults(data);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setLoading(false);
     }
@@ -56,69 +58,82 @@ function App() {
 
   return (
     <div className="container">
-      <header style={{ marginBottom: '3rem', textAlign: 'center' }}>
-        <h1 style={{ fontSize: '3rem', marginBottom: '0.5rem', background: 'linear-gradient(to right, var(--accent-vision), var(--accent-time))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-          Forge Bridge Analysis AI
-        </h1>
-        <p style={{ color: 'var(--text-muted)', fontSize: '1.2rem' }}>
-          Unified pipeline: Vision crack detection ➞ Risk scoring ➞ Degradation Forecasting
-        </p>
+      <header style={{ marginBottom: '3rem', borderBottom: '4px solid var(--primary)', paddingBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+        <div>
+          <h1 style={{ margin: 0, fontSize: '3rem', fontFamily: 'Space Grotesk' }}>FORGE_AI</h1>
+          <div style={{ fontSize: '0.875rem', fontWeight: 800, color: 'var(--text-muted)' }}>[ BRIDGE_STRUCTURAL_DIAGNOSTIC_CORE_V2.0 ]</div>
+        </div>
+        <div style={{ textAlign: 'right', fontFamily: 'Space Grotesk', fontSize: '0.75rem', fontWeight: 700 }}>
+           STATUS: {loading ? 'ANALYZING...' : 'SYSTEM_IDLE'}<br/>
+           DATE: {new Date().toLocaleDateString()}
+        </div>
       </header>
 
       <div className="main-content">
-        <aside>
-          <form className="glass-panel" onSubmit={handleAnalyze}>
-            <h2 style={{ fontSize: '1.25rem', marginBottom: '1.5rem' }}>Structure Data</h2>
-            
+        <div className="glass-panel" style={{ background: 'var(--surface-low)', height: 'fit-content' }}>
+          <h3 style={{ fontSize: '1rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+             <div style={{ width: '8px', height: '8px', background: 'var(--primary)' }}></div>
+             INPUT_PARAMETERS
+          </h3>
+          
+          <form onSubmit={handleAnalyze}>
             <div className="input-group">
-              <label>Bridge Image (with suspected cracks)</label>
+              <label>Structural Image_Capture</label>
               <input type="file" accept="image/*" onChange={handleImageChange} required />
             </div>
-            
-            {imagePreview && (
-              <div style={{ marginBottom: '1.5rem', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-color)' }}>
-                <img src={imagePreview} alt="Preview" style={{ width: '100%', display: 'block' }} />
-              </div>
-            )}
 
             <div className="input-group">
-              <label>Structure Age (Years)</label>
+              <label>Asset_Age (Y)</label>
               <input type="number" min="0" max="200" value={age} onChange={(e) => setAge(Number(e.target.value))} required />
             </div>
 
             <div className="input-group">
-              <label>Traffic Load Factor (1.0 = baseline)</label>
+              <label>Live_Load_Multiplier</label>
               <input type="number" step="0.1" min="0" max="5" value={loadFactor} onChange={(e) => setLoadFactor(Number(e.target.value))} required />
             </div>
 
-            {error && <div style={{ color: 'var(--danger)', marginBottom: '1rem', fontSize: '0.875rem' }}>{error}</div>}
+            <div className="input-group">
+              <label>Rebar_Cover_Depth (MM)</label>
+              <input type="number" min="1" max="100" value={coverDepth} onChange={(e) => setCoverDepth(Number(e.target.value))} required />
+            </div>
+
+            <div className="input-group">
+              <label>Surrounding_Environment</label>
+              <select value={environment} onChange={(e) => setEnvironment(e.target.value)}>
+                <option value="urban">URBAN_CENTRAL</option>
+                <option value="industrial">INDUSTRIAL_AGGRESSIVE</option>
+                <option value="marine">MARINE_CORROSIVE</option>
+                <option value="rural">RURAL_STABLE</option>
+              </select>
+            </div>
 
             <button type="submit" className="primary-btn" disabled={!image || loading}>
-              {loading ? (
-                <span className="pulse">Analyzing AI Pipeline...</span>
-              ) : (
-                'Run Structural Analysis'
-              )}
+              {loading ? 'EXECUTING_ANALYSIS...' : 'RUN_DIAGNOSTIC_SUITE'}
             </button>
           </form>
-        </aside>
+        </div>
 
-        <main>
-          {results ? (
-            <Dashboard data={results} imagePreview={imagePreview} />
-          ) : (
-            <div className="glass-panel" style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
-              <div style={{ textAlign: 'center' }}>
-                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.5, marginBottom: '1rem' }}>
-                  <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
-                  <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
-                  <line x1="12" y1="22.08" x2="12" y2="12"></line>
-                </svg>
-                <p>Awaiting structural data input.<br/>Upload an image and run analysis to see dashboard.</p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          {imagePreview && (
+            <div className="glass-panel" style={{ padding: '0', background: '#000', overflow: 'hidden', maxWidth: '600px', margin: '0 auto', aspectRatio: '1/1' }}>
+              <div className="bbox-container" style={{ position: 'relative', width: '100%', height: '100%' }}>
+                <img src={imagePreview} alt="Bridge" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', opacity: 0.8 }} />
+                {results?.vision?.predictions?.map((pred: any, idx: number) => (
+                  <div key={idx} className="bbox" style={{
+                    left: `${(pred.x - pred.width / 2) / 6.4}%`, // Assuming 640px based on Roboflow defaults, but usually it should be relative to image size.
+                    top: `${(pred.y - pred.height / 2) / 6.4}%`, 
+                    width: `${(pred.width) / 6.4}%`,
+                    height: `${(pred.height) / 6.4}%`
+                  }}>
+                    <div className="bbox-label">{pred.class} {Math.round(pred.confidence * 100)}%</div>
+                  </div>
+                ))}
               </div>
             </div>
           )}
-        </main>
+
+          {results && <Dashboard data={results} />}
+        </div>
       </div>
     </div>
   );

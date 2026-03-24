@@ -4,3 +4,8 @@ pydantic
 python-multipart
 requests
 python-dotenv
+xgboost
+pandas
+scikit-learn
+tensorflow
+Pillow
